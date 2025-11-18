@@ -1,10 +1,11 @@
-const CACHE_NAME = "hrfv-cache-v1";
+const CACHE_NAME = "hrfv-cache-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./words.js",
+  "./madlibs.js",
   "./manifest.json",
   "./icons/icon.png"
 ];

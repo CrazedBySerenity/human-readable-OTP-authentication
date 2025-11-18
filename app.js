@@ -241,7 +241,7 @@ function buildFriendCard(friend) {
       <span class="badge countdown" data-role="countdown">30s</span>
     </div>
     <p class="helper-copy small">
-      Read your chosen color aloud. Listen for your friend to say the other color.
+      Read your chosen color sentence aloud. Listen for your friend to say the other color sentence.
     </p>
     <div class="role-segmented-control">
       <span class="role-label">I am</span>
@@ -440,12 +440,12 @@ async function startVerification(friendId, options = {}) {
   }
 
   try {
-    const { redWords, blueWords, allWords, expiresAt } = await generateVerification(
+    const { redSentence, blueSentence, expiresAt } = await generateVerification(
       friend.secretKeyBase64
     );
     state.currentFriendId = friendId;
 
-    panel.__wordSets = { red: redWords, blue: blueWords, all: allWords };
+    panel.__sentences = { red: redSentence, blue: blueSentence };
     resetRoleSelection(panel);
 
     panel.classList.remove("hidden");
@@ -459,38 +459,25 @@ async function startVerification(friendId, options = {}) {
   }
 }
 
-function renderCombinedWords(container, wordsToShow, variant) {
-  if (!container) return;
-  container.innerHTML = "";
-  wordsToShow.forEach((word) => {
-    const badge = document.createElement("span");
-    badge.className = `word-badge variant-${variant}`;
-    badge.textContent = word;
-    container.appendChild(badge);
-  });
-}
-
-function renderWordBadges(container, words, options = {}) {
+function renderSentenceBlock(container, sentence, options = {}) {
   if (!container) return;
   const { variant = "neutral", size = "default" } = options;
   container.innerHTML = "";
-  words.forEach((word) => {
-    const badge = document.createElement("span");
-    const classes = ["word-badge"];
-    if (variant) {
-      classes.push(`variant-${variant}`);
-    }
-    if (size === "compact") {
-      classes.push("compact");
-    }
-    badge.className = classes.join(" ");
-    badge.textContent = word;
-    container.appendChild(badge);
-  });
+  const block = document.createElement("p");
+  const classes = ["sentence-block"];
+  if (variant) {
+    classes.push(`variant-${variant}`);
+  }
+  if (size === "compact") {
+    classes.push("compact");
+  }
+  block.className = classes.join(" ");
+  block.textContent = sentence || "No sentence available.";
+  container.appendChild(block);
 }
 
 function resetRoleSelection(panel) {
-  if (!panel || !panel.__wordSets) return;
+  if (!panel || !panel.__sentences) return;
   panel.dataset.selectedRole = "";
   const olderRadio = panel.querySelector('input[name="ageRole"][value="older"]');
   if (olderRadio) {
@@ -500,17 +487,17 @@ function resetRoleSelection(panel) {
 }
 
 function handleRoleSelection(panel, ageRole) {
-  if (!panel || !panel.__wordSets || !ageRole) return;
+  if (!panel || !panel.__sentences || !ageRole) return;
   panel.dataset.selectedRole = ageRole;
   const colorRole = ageRole === "older" ? "red" : "blue";
-  const wordsToShow = colorRole === "red" ? panel.__wordSets.red : panel.__wordSets.blue;
+  const sentence = panel.__sentences[colorRole];
   const allWordsContainer = panel.querySelector('[data-role="all-words"]');
-  renderCombinedWords(allWordsContainer, wordsToShow, colorRole);
-  updateListeningSection(panel, colorRole, ageRole);
+  renderSentenceBlock(allWordsContainer, sentence, { variant: colorRole });
+  updateListeningSection(panel, colorRole);
 }
 
-function updateListeningSection(panel, colorRole, ageRole) {
-  if (!panel || !panel.__wordSets) return;
+function updateListeningSection(panel, colorRole) {
+  if (!panel || !panel.__sentences) return;
   const listenWords = panel.querySelector('[data-role="listen-words"]');
   const helper = panel.querySelector('[data-role="listening-helper"]');
   if (!listenWords || !helper) return;
@@ -520,17 +507,17 @@ function updateListeningSection(panel, colorRole, ageRole) {
     return;
   }
   const isRed = colorRole === "red";
-  const expected = isRed ? panel.__wordSets.blue : panel.__wordSets.red;
-  const expectedColor = isRed ? "BLUE" : "RED";
-  helper.textContent = `You should hear these ${expectedColor} words:`;
-  renderWordBadges(listenWords, expected, {
-    variant: isRed ? "blue" : "red",
+  const expectedColor = isRed ? "blue" : "red";
+  const expectedSentence = panel.__sentences[expectedColor];
+  helper.textContent = `You should hear this ${expectedColor.toUpperCase()} sentence:`;
+  renderSentenceBlock(listenWords, expectedSentence, {
+    variant: expectedColor,
     size: "compact"
   });
 }
 
 function handleVerificationResult(friendId, matched) {
-  showToast(matched ? "Everything matched" : "Didn't match. Try again.");
+  showToast(matched ? "Your friend was successfully verified" : "The person might be impersonating your friend! Please try again but proceed with caution.");
   if (state.currentFriendId === friendId) {
     closeActiveVerification();
   }
@@ -731,6 +718,38 @@ function generatePhrase() {
   return words.join(" ");
 }
 
+function createByteCursor(bytes) {
+  const source = bytes && bytes.length ? bytes : new Uint8Array([0]);
+  let index = 0;
+  return {
+    next() {
+      const value = source[index];
+      index = (index + 1) % source.length;
+      return value;
+    }
+  };
+}
+
+function pickMadlibWord(cursor, categoryKey) {
+  const list = MADLIB_WORDS?.[categoryKey];
+  if (!Array.isArray(list) || list.length === 0) {
+    return categoryKey;
+  }
+  const value = cursor.next();
+  return list[value % list.length];
+}
+
+function generateMadlibSentence(seedBytes) {
+  if (!Array.isArray(MADLIB_TEMPLATES) || MADLIB_TEMPLATES.length === 0) {
+    return "Sentence unavailable.";
+  }
+  const cursor = createByteCursor(seedBytes);
+  const template = MADLIB_TEMPLATES[cursor.next() % MADLIB_TEMPLATES.length];
+  return template.pattern.replace(/\{([a-z_]+)\}/gi, (_, key) =>
+    pickMadlibWord(cursor, key)
+  );
+}
+
 async function deriveSecret(phrase) {
   const encoder = new TextEncoder();
   const salt = encoder.encode("hrfv-pairing-v1");
@@ -766,22 +785,12 @@ async function generateVerification(secretKeyBase64) {
   const timeStep = Math.floor(Date.now() / 1000 / 30);
   const message = new TextEncoder().encode(`verify:${timeStep}`);
   const hmac = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, message));
-  const seed = hmac.slice(0, 16);
-  const allWords = [];
-  const redWords = [];
-  const blueWords = [];
-  for (let i = 0; i < 8; i += 1) {
-    const idx = seed[i] % WORD_LIST.length;
-    const word = WORD_LIST[idx];
-    allWords.push(word);
-    if (i % 2 === 0) {
-      redWords.push(word);
-    } else {
-      blueWords.push(word);
-    }
-  }
+  const redSeed = hmac.slice(0, 16);
+  const blueSeed = hmac.slice(16, 32);
+  const redSentence = generateMadlibSentence(redSeed);
+  const blueSentence = generateMadlibSentence(blueSeed);
   const windowEnd = new Date((timeStep + 1) * 30 * 1000);
-  return { redWords, blueWords, allWords, expiresAt: windowEnd };
+  return { redSentence, blueSentence, expiresAt: windowEnd };
 }
 
 function bytesToBase64(bytes) {
