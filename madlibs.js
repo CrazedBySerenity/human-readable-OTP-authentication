@@ -1,17 +1,17 @@
 const MADLIB_TEMPLATES = [
   {
     id: "color-animal-verb",
-    pattern: "The {color} {animal} will {verb} soon.",
+    pattern: "The {color} {animal} will {verb}.",
     placeholders: ["color", "animal", "verb"]
   },
   {
     id: "adjective-object-verb",
-    pattern: "A {adjective} {object} can {verb} today.",
+    pattern: "A {adjective} {object} can {verb}.",
     placeholders: ["adjective", "object", "verb"]
   },
   {
     id: "color-object-verbing",
-    pattern: "Your {color} {object} is {verb_ing} now.",
+    pattern: "Your {color} {object} is {verb_ing}.",
     placeholders: ["color", "object", "verb_ing"]
   },
   {
