@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HRFV PWA</title>
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" href="icons/icon.png" />
+    <link rel="apple-touch-icon" href="icons/icon.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-bar">
+        <div class="brand-copy">
+          <p class="eyebrow">Offline PWA</p>
+          <h1>Human Readable Friend Verification</h1>
+          <p class="tagline">Pair, store, and verify secrets entirely offline.</p>
+        </div>
+        <div class="header-actions">
+          <span id="statusChip" class="status-chip" aria-live="polite">Checking…</span>
+          <button id="installButton" type="button" class="ghost-button subtle hidden">
+            Install app
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="friends-section" aria-labelledby="friendsHeading">
+        <div class="section-header">
+          <div>
+            <h2 id="friendsHeading">Friends</h2>
+            <p id="friendsSubcopy" class="subcopy">Stored securely on this device.</p>
+          </div>
+          <button id="refreshFriends" class="ghost-button icon" title="Refresh friends">
+            ↻
+          </button>
+        </div>
+        <div id="friendsList" class="cards"></div>
+        <p class="empty-state" id="noFriendsNote">No friends yet. Add one below.</p>
+      </section>
+
+      <section id="add-section" aria-labelledby="addHeading">
+        <div class="section-header">
+          <div>
+            <h2 id="addHeading">Add friend</h2>
+            <p class="subcopy">Choose how you want to pair.</p>
+          </div>
+        </div>
+
+        <div class="segmented-control" role="radiogroup" aria-label="Add friend mode">
+          <label class="segment">
+            <input type="radio" name="addMode" value="generate" checked />
+            <span>Generate phrase</span>
+          </label>
+          <label class="segment">
+            <input type="radio" name="addMode" value="enter" />
+            <span>Enter phrase</span>
+          </label>
+        </div>
+
+        <div class="tab-panel" id="generatePanel" data-panel="generate">
+          <button id="generatePhrase" class="primary full">Generate pairing phrase</button>
+          <p id="generateHelper" class="helper-copy">
+            Tap generate to create a phrase for your friend.
+          </p>
+          <p
+            id="generatedPhrase"
+            class="phrase-display hidden copyable"
+            tabindex="0"
+            role="button"
+            aria-live="polite"
+            aria-label="Copy generated phrase"
+          ></p>
+          <label class="field">
+            <span>Friend label</span>
+            <input type="text" id="generatedLabel" placeholder="e.g. Alice" />
+            <span id="generateLabelHint" class="field-hint"></span>
+          </label>
+          <button id="saveGenerated" class="primary" disabled>Save friend</button>
+        </div>
+
+        <div class="tab-panel hidden" id="enterPanel" data-panel="enter">
+          <label class="field">
+            <span>Pairing phrase</span>
+            <textarea
+              id="enteredPhrase"
+              rows="3"
+              placeholder="silver robot midnight canyon velvet comet"
+            ></textarea>
+            <span id="enterPhraseHint" class="field-hint">
+              Paste or type the exact phrase you received.
+            </span>
+          </label>
+          <label class="field">
+            <span>Friend label</span>
+            <input type="text" id="enteredLabel" placeholder="e.g. Bob" />
+            <span id="enterLabelHint" class="field-hint"></span>
+          </label>
+          <button id="saveEntered" class="primary" disabled>Save friend</button>
+        </div>
+      </section>
+
+    </main>
+
+    <footer>
+      <small>Offline-first. Secrets never leave this device.</small>
+    </footer>
+
+    <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="words.js"></script>
+    <script src="app.js" defer></script>
+  </body>
+</html>
+
