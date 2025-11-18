@@ -2,6 +2,7 @@
   "name": "ITrustYou",
   "short_name": "ITrustYou",
   "start_url": "/human-readable-OTP-authentication/index.html",
+  "scope": "/human-readable-OTP-authentication/",
   "display": "standalone",
   "background_color": "#fafafa",
   "theme_color": "#4ca6ff",
