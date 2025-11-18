@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>HRFV PWA</title>
+    <title>ITrustYou</title>
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" href="icons/icon.png" />
     <link rel="apple-touch-icon" href="icons/icon.png" />
@@ -13,9 +13,11 @@
     <header class="app-header">
       <div class="header-bar">
         <div class="brand-copy">
-          <p class="eyebrow">Offline PWA</p>
-          <h1>Human Readable Friend Verification</h1>
-          <p class="tagline">Pair, store, and verify secrets entirely offline.</p>
+          <p class="eyebrow">ITrustYou</p>
+          <h1>Deeptruth your friends</h1>
+          <p class="tagline">
+            Pair once, verify anytime anywhere.
+          </p>
         </div>
         <div class="header-actions">
           <span id="statusChip" class="status-chip" aria-live="polite">Checking…</span>
@@ -31,7 +33,7 @@
         <div class="section-header">
           <div>
             <h2 id="friendsHeading">Friends</h2>
-            <p id="friendsSubcopy" class="subcopy">Stored securely on this device.</p>
+            <p id="friendsSubcopy" class="subcopy">Saved only on this device.</p>
           </div>
           <button id="refreshFriends" class="ghost-button icon" title="Refresh friends">
             ↻
@@ -44,59 +46,65 @@
       <section id="add-section" aria-labelledby="addHeading">
         <div class="section-header">
           <div>
-            <h2 id="addHeading">Add friend</h2>
-            <p class="subcopy">Choose how you want to pair.</p>
+            <h2 id="addHeading">Add a friend</h2>
+            <p class="subcopy">Create a shared secret phrase together.</p>
+            <p class="section-hint">
+            </p>
           </div>
         </div>
 
         <div class="segmented-control" role="radiogroup" aria-label="Add friend mode">
           <label class="segment">
             <input type="radio" name="addMode" value="generate" checked />
-            <span>Generate phrase</span>
+            <span>I read the phrase</span>
           </label>
           <label class="segment">
             <input type="radio" name="addMode" value="enter" />
-            <span>Enter phrase</span>
+            <span>I type their phrase</span>
           </label>
         </div>
 
         <div class="tab-panel" id="generatePanel" data-panel="generate">
-          <button id="generatePhrase" class="primary full">Generate pairing phrase</button>
-          <p id="generateHelper" class="helper-copy">
-            Tap generate to create a phrase for your friend.
-          </p>
-          <p
-            id="generatedPhrase"
-            class="phrase-display hidden copyable"
-            tabindex="0"
-            role="button"
-            aria-live="polite"
-            aria-label="Copy generated phrase"
-          ></p>
           <label class="field">
-            <span>Friend label</span>
-            <input type="text" id="generatedLabel" placeholder="e.g. Alice" />
-            <span id="generateLabelHint" class="field-hint"></span>
+            <span>Friend name</span>
+            <input type="text" id="generatedLabel" placeholder="e.g. Alice's iPhone" />
+            <span id="generateLabelHint" class="field-hint">Only you see this name.</span>
           </label>
+          <p id="generateHelper" class="helper-copy">
+            Read this phrase aloud to your friend.
+          </p>
+          <div class="phrase-container">
+            <button id="generatePhrase" class="ghost-button icon" type="button" aria-label="Regenerate phrase">
+              ↻
+            </button>
+            <p
+              id="generatedPhrase"
+              class="phrase-display copyable"
+              tabindex="0"
+              role="button"
+              aria-live="polite"
+              aria-label="Copy generated phrase"
+            ></p>
+          </div>
           <button id="saveGenerated" class="primary" disabled>Save friend</button>
         </div>
 
         <div class="tab-panel hidden" id="enterPanel" data-panel="enter">
           <label class="field">
-            <span>Pairing phrase</span>
+            <span>Friend name</span>
+            <input type="text" id="enteredLabel" placeholder="e.g. Bob's Samsung Galaxy" />
+            <span id="enterLabelHint" class="field-hint">Only you see this name.</span>
+          </label>
+          <label class="field">
+            <span>Secret phrase from your friend</span>
             <textarea
               id="enteredPhrase"
               rows="3"
               placeholder="silver robot midnight canyon velvet comet"
             ></textarea>
             <span id="enterPhraseHint" class="field-hint">
-              Paste or type the exact phrase you received.
+              Words must match exactly. Use spaces between each word.
             </span>
-          </label>
-          <label class="field">
-            <span>Friend label</span>
-            <input type="text" id="enteredLabel" placeholder="e.g. Bob" />
-            <span id="enterLabelHint" class="field-hint"></span>
           </label>
           <button id="saveEntered" class="primary" disabled>Save friend</button>
         </div>
@@ -105,7 +113,7 @@
     </main>
 
     <footer>
-      <small>Offline-first. Secrets never leave this device.</small>
+      <small>Offline first. Your secrets stay on this device.</small>
     </footer>
 
     <div id="toastHost" class="toast-host" aria-live="polite" aria-atomic="true"></div>
@@ -114,4 +122,3 @@
     <script src="app.js" defer></script>
   </body>
 </html>
-

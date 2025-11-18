@@ -129,6 +129,9 @@ function bindEvents() {
   window.addEventListener("appinstalled", handleAppInstalled);
 
   switchPanel(state.addMode);
+  if (state.addMode === "generate") {
+    handleGeneratePhrase();
+  }
   updateGeneratedSaveState();
   updateEnteredSaveState();
   updateInstallButtonVisibility();
@@ -141,6 +144,9 @@ function switchPanel(mode) {
   });
   elements.generatePanel.classList.toggle("hidden", mode !== "generate");
   elements.enterPanel.classList.toggle("hidden", mode !== "enter");
+  if (mode === "generate" && !state.generatedPhrase) {
+    handleGeneratePhrase();
+  }
 }
 
 async function hydrateFriends() {
@@ -167,9 +173,8 @@ function renderFriends() {
 
 function maskPhrase(phrase) {
   if (!phrase) return "No phrase stored";
-  const words = phrase.split(" ");
-  const snippet = words.slice(0, 3).join(" ");
-  return `${snippet}${words.length > 3 ? " ..." : ""}`;
+  const words = phrase.split(/\s+/);
+  return words.slice(0, 3).join(" ");
 }
 
 function buildFriendCard(friend) {
@@ -195,12 +200,6 @@ function buildFriendCard(friend) {
   const actions = document.createElement("div");
   actions.className = "card-actions";
 
-  const verifyBtn = document.createElement("button");
-  verifyBtn.className = "pill-button";
-  verifyBtn.type = "button";
-  verifyBtn.textContent = "Verify";
-  verifyBtn.addEventListener("click", () => startVerification(friend.id));
-
   const deleteBtn = document.createElement("button");
   deleteBtn.className = "ghost-button icon delete-button";
   deleteBtn.type = "button";
@@ -211,56 +210,103 @@ function buildFriendCard(friend) {
     handleDeleteFriend(friend.id);
   });
 
-  actions.append(verifyBtn, deleteBtn);
+  actions.append(deleteBtn);
   header.append(info, actions);
 
+  const helperLine = document.createElement("p");
+  helperLine.className = "card-helper";
+  helperLine.textContent = "Tap to verify";
+
   const preview = document.createElement("p");
-  preview.className = "phrase-preview copyable";
-  preview.textContent = maskPhrase(friend.phrase);
-  preview.tabIndex = 0;
-  preview.setAttribute("role", "button");
-  preview.setAttribute("aria-label", "Copy pairing phrase");
-  attachCopyHandler(preview, friend.phrase, "Pairing phrase copied");
+  preview.className = "phrase-preview";
+  const previewSource = friend.phrase ? `${maskPhrase(friend.phrase)} ...` : "No phrase stored";
+  preview.textContent = previewSource;
+  preview.tabIndex = -1;
+  preview.setAttribute("aria-hidden", "false");
+  preview.style.userSelect = "none";
+  preview.addEventListener("copy", (e) => e.preventDefault());
+  preview.addEventListener("contextmenu", (e) => e.preventDefault());
+  preview.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "c" || e.key === "C")) e.preventDefault();
+  });
 
   const verificationPanel = document.createElement("div");
   verificationPanel.className = "verification-panel hidden";
   verificationPanel.innerHTML = `
-    <div class="verification-meta">
+    <div class="verification-top">
+      <div>
+        <p class="verification-label">Verify with</p>
+        <p class="verification-name">${friend.label || "Friend"}</p>
+      </div>
       <span class="badge countdown" data-role="countdown">30s</span>
-      <button type="button" class="ghost-button tiny" data-role="toggle-full">Show friend words</button>
-    </div>
-    <div class="word-groups">
-      <div class="word-group">
-        <p class="group-title">You read</p>
-        <div class="badge-row" data-role="your-words"></div>
-      </div>
-      <div class="word-group hidden" data-role="friend-group">
-        <p class="group-title">Friend reads</p>
-        <div class="badge-row" data-role="friend-words"></div>
-      </div>
     </div>
     <p class="helper-copy small">
-      Read your four words aloud. Ask your friend to read theirs. Together they confirm the call.
+      Read your chosen color aloud. Listen for your friend to say the other color.
     </p>
+    <div class="role-segmented-control">
+      <span class="role-label">I am</span>
+      <div class="segmented-control" role="radiogroup" aria-label="Age role">
+        <label class="segment">
+          <input type="radio" name="ageRole" value="older" checked />
+          <span>Older</span>
+        </label>
+        <label class="segment">
+          <input type="radio" name="ageRole" value="younger" />
+          <span>Younger</span>
+        </label>
+      </div>
+    </div>
+    <div class="word-column combined">
+      <div class="word-stack" data-role="all-words"></div>
+    </div>
+    <div class="listening-panel">
+      <p class="helper-eyebrow" data-role="listening-helper">
+        Choose your age to know what you should hear.
+      </p>
+      <div class="word-stack compact" data-role="listen-words"></div>
+    </div>
+    <div class="verification-actions">
+      <button type="button" class="primary" data-role="confirm-match">Everything matched</button>
+      <button type="button" class="ghost-button" data-role="no-match">Didn't match</button>
+    </div>
   `;
 
-  const toggleBtn = verificationPanel.querySelector('[data-role="toggle-full"]');
-  const friendGroup = verificationPanel.querySelector('[data-role="friend-group"]');
-  toggleBtn.addEventListener("click", () => toggleFriendWords(friendGroup, toggleBtn));
+  attachVerificationPanelInteractions(verificationPanel, friend.id);
 
-  card.append(header, preview, verificationPanel);
+  card.append(header, helperLine, preview, verificationPanel);
+  card.classList.add("clickable-card");
+  card.addEventListener("click", (event) => {
+    if (!event.target.closest("button") && !event.target.closest(".verification-panel")) {
+      startVerification(friend.id);
+    }
+  });
   registerSwipeToDelete(card, friend.id);
 
   return card;
 }
 
+function attachVerificationPanelInteractions(panel, friendId) {
+  if (!panel) return;
+  const roleRadios = panel.querySelectorAll('input[name="ageRole"]');
+  roleRadios.forEach((radio) => {
+    radio.addEventListener("change", () => {
+      if (radio.checked) {
+        handleRoleSelection(panel, radio.value);
+      }
+    });
+  });
+  const confirmBtn = panel.querySelector('[data-role="confirm-match"]');
+  confirmBtn?.addEventListener("click", () => handleVerificationResult(friendId, true));
+  const noMatchBtn = panel.querySelector('[data-role="no-match"]');
+  noMatchBtn?.addEventListener("click", () => handleVerificationResult(friendId, false));
+}
+
 function handleGeneratePhrase() {
   state.generatedPhrase = generatePhrase();
   elements.generatedPhrase.textContent = state.generatedPhrase;
-  elements.generatedPhrase.classList.remove("hidden");
   setHelperText(
     elements.generateHelper,
-    "Share these six words with your friend. Save them once labeled."
+    "Read this phrase aloud to your friend."
   );
   updateGeneratedSaveState();
 }
@@ -300,13 +346,9 @@ async function handleSaveGenerated() {
   await persistFriend(label, state.generatedPhrase);
   state.generatedPhrase = "";
   elements.generatedPhrase.textContent = "";
-  elements.generatedPhrase.classList.add("hidden");
   elements.generatedLabel.value = "";
+  handleGeneratePhrase();
   updateGeneratedSaveState();
-  setHelperText(
-    elements.generateHelper,
-    "Friend saved. Generate a new phrase when you're ready."
-  );
   setHelperText(elements.generateLabelHint, "");
 }
 
@@ -398,20 +440,13 @@ async function startVerification(friendId, options = {}) {
   }
 
   try {
-    const { yourWords, friendWords, expiresAt } = await generateVerification(
+    const { redWords, blueWords, allWords, expiresAt } = await generateVerification(
       friend.secretKeyBase64
     );
     state.currentFriendId = friendId;
 
-    const yourWordsContainer = panel.querySelector('[data-role="your-words"]');
-    const friendWordsContainer = panel.querySelector('[data-role="friend-words"]');
-    renderWordBadges(yourWordsContainer, yourWords);
-    renderWordBadges(friendWordsContainer, friendWords);
-
-    const friendGroup = panel.querySelector('[data-role="friend-group"]');
-    const toggleBtn = panel.querySelector('[data-role="toggle-full"]');
-    friendGroup.classList.add("hidden");
-    toggleBtn.textContent = "Show friend words";
+    panel.__wordSets = { red: redWords, blue: blueWords, all: allWords };
+    resetRoleSelection(panel);
 
     panel.classList.remove("hidden");
     card.classList.add("open");
@@ -424,21 +459,81 @@ async function startVerification(friendId, options = {}) {
   }
 }
 
-function toggleFriendWords(group, button) {
-  if (!group || !button) return;
-  const isHidden = group.classList.toggle("hidden");
-  button.textContent = isHidden ? "Show friend words" : "Hide friend words";
-}
-
-function renderWordBadges(container, words) {
+function renderCombinedWords(container, wordsToShow, variant) {
   if (!container) return;
   container.innerHTML = "";
-  words.forEach((word) => {
+  wordsToShow.forEach((word) => {
     const badge = document.createElement("span");
-    badge.className = "word-badge";
+    badge.className = `word-badge variant-${variant}`;
     badge.textContent = word;
     container.appendChild(badge);
   });
+}
+
+function renderWordBadges(container, words, options = {}) {
+  if (!container) return;
+  const { variant = "neutral", size = "default" } = options;
+  container.innerHTML = "";
+  words.forEach((word) => {
+    const badge = document.createElement("span");
+    const classes = ["word-badge"];
+    if (variant) {
+      classes.push(`variant-${variant}`);
+    }
+    if (size === "compact") {
+      classes.push("compact");
+    }
+    badge.className = classes.join(" ");
+    badge.textContent = word;
+    container.appendChild(badge);
+  });
+}
+
+function resetRoleSelection(panel) {
+  if (!panel || !panel.__wordSets) return;
+  panel.dataset.selectedRole = "";
+  const olderRadio = panel.querySelector('input[name="ageRole"][value="older"]');
+  if (olderRadio) {
+    olderRadio.checked = true;
+  }
+  handleRoleSelection(panel, "older");
+}
+
+function handleRoleSelection(panel, ageRole) {
+  if (!panel || !panel.__wordSets || !ageRole) return;
+  panel.dataset.selectedRole = ageRole;
+  const colorRole = ageRole === "older" ? "red" : "blue";
+  const wordsToShow = colorRole === "red" ? panel.__wordSets.red : panel.__wordSets.blue;
+  const allWordsContainer = panel.querySelector('[data-role="all-words"]');
+  renderCombinedWords(allWordsContainer, wordsToShow, colorRole);
+  updateListeningSection(panel, colorRole, ageRole);
+}
+
+function updateListeningSection(panel, colorRole, ageRole) {
+  if (!panel || !panel.__wordSets) return;
+  const listenWords = panel.querySelector('[data-role="listen-words"]');
+  const helper = panel.querySelector('[data-role="listening-helper"]');
+  if (!listenWords || !helper) return;
+  if (!colorRole) {
+    helper.textContent = "Choose your age to know what you should hear.";
+    listenWords.innerHTML = "";
+    return;
+  }
+  const isRed = colorRole === "red";
+  const expected = isRed ? panel.__wordSets.blue : panel.__wordSets.red;
+  const expectedColor = isRed ? "BLUE" : "RED";
+  helper.textContent = `You should hear these ${expectedColor} words:`;
+  renderWordBadges(listenWords, expected, {
+    variant: isRed ? "blue" : "red",
+    size: "compact"
+  });
+}
+
+function handleVerificationResult(friendId, matched) {
+  showToast(matched ? "Everything matched" : "Didn't match. Try again.");
+  if (state.currentFriendId === friendId) {
+    closeActiveVerification();
+  }
 }
 
 function startCountdown(targetEl, friendId, expiresAt) {
@@ -673,20 +768,20 @@ async function generateVerification(secretKeyBase64) {
   const hmac = new Uint8Array(await crypto.subtle.sign("HMAC", cryptoKey, message));
   const seed = hmac.slice(0, 16);
   const allWords = [];
-  const yourWords = [];
-  const friendWords = [];
+  const redWords = [];
+  const blueWords = [];
   for (let i = 0; i < 8; i += 1) {
     const idx = seed[i] % WORD_LIST.length;
     const word = WORD_LIST[idx];
     allWords.push(word);
     if (i % 2 === 0) {
-      yourWords.push(word);
+      redWords.push(word);
     } else {
-      friendWords.push(word);
+      blueWords.push(word);
     }
   }
   const windowEnd = new Date((timeStep + 1) * 30 * 1000);
-  return { yourWords, friendWords, allWords, expiresAt: windowEnd };
+  return { redWords, blueWords, allWords, expiresAt: windowEnd };
 }
 
 function bytesToBase64(bytes) {
